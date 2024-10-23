@@ -62,7 +62,8 @@ public:
   EngineBuilder& setHttp3ClientConnectionOptions(std::string options);
   EngineBuilder& addQuicHint(std::string host, int port);
   EngineBuilder& addQuicCanonicalSuffix(std::string suffix);
-  EngineBuilder& enablePortMigration(bool enable_port_migration);
+  // 0 means port migration is disabled.
+  EngineBuilder& setNumTimeoutsToTriggerPortMigration(int num_timeouts);
   EngineBuilder& enableInterfaceBinding(bool interface_binding_on);
   EngineBuilder& enableDrainPostDnsRefresh(bool drain_post_dns_refresh_on);
   // Sets whether to use GRO for upstream UDP sockets (QUIC/HTTP3).
@@ -74,7 +75,6 @@ public:
   EngineBuilder& enablePlatformCertificatesValidation(bool platform_certificates_validation_on);
 
   EngineBuilder& enableDnsCache(bool dns_cache_on, int save_interval_seconds = 1);
-  EngineBuilder& setForceAlwaysUsev6(bool value);
   // Adds the hostnames that should be pre-resolved by DNS prior to the first request issued for
   // that host. When invoked, any previous preresolve hostname entries get cleared and only the ones
   // provided in the hostnames argument get set.
@@ -103,6 +103,12 @@ public:
   // The value must be an integer between -20 (highest priority) and 19 (lowest priority). Values
   // outside of this range will be ignored.
   EngineBuilder& setNetworkThreadPriority(int thread_priority);
+
+  // Sets the QUIC connection idle timeout in seconds.
+  EngineBuilder& setQuicConnectionIdleTimeoutSeconds(int quic_connection_idle_timeout_seconds);
+
+  // Sets the QUIC connection keepalive initial interval in nanoseconds
+  EngineBuilder& setKeepAliveInitialIntervalMilliseconds(int keepalive_initial_interval_ms);
 
 #if defined(__APPLE__)
   // Right now, this API is only used by Apple (iOS) to register the Apple proxy resolver API for
@@ -140,7 +146,7 @@ private:
   std::unique_ptr<EngineCallbacks> callbacks_;
   std::unique_ptr<EnvoyEventTracker> event_tracker_{nullptr};
 
-  int connect_timeout_seconds_ = 30;
+  int connect_timeout_seconds_ = 10;
   int dns_refresh_seconds_ = 60;
   int dns_failure_refresh_seconds_base_ = 2;
   int dns_failure_refresh_seconds_max_ = 10;
@@ -176,8 +182,7 @@ private:
   std::string http3_client_connection_options_ = "";
   std::vector<std::pair<std::string, int>> quic_hints_;
   std::vector<std::string> quic_suffixes_;
-  bool enable_port_migration_ = false;
-  bool always_use_v6_ = false;
+  int num_timeouts_to_trigger_port_migration_ = 0;
 #if defined(__APPLE__)
   // TODO(abeyad): once stable, consider setting the default to true.
   bool respect_system_proxy_settings_ = false;
@@ -201,6 +206,13 @@ private:
   // https://source.chromium.org/chromium/chromium/src/+/main:net/quic/quic_session_pool.cc;l=790-793;drc=7f04a8e033c23dede6beae129cd212e6d4473d72
   // https://source.chromium.org/chromium/chromium/src/+/main:net/third_party/quiche/src/quiche/quic/core/quic_constants.h;l=43-47;drc=34ad7f3844f882baf3d31a6bc6e300acaa0e3fc8
   int32_t udp_socket_send_buffer_size_ = 1452 * 20;
+  // These are the same values Cronet uses for QUIC:
+  // https://source.chromium.org/chromium/chromium/src/+/main:net/quic/quic_context.cc;l=21-22;drc=6849bf6b37e96bd1c38a5f77f7deaa28b53779c4;bpv=1;bpt=1
+  const uint32_t initial_stream_window_size_ = 6 * 1024 * 1024;      // 6MB
+  const uint32_t initial_connection_window_size_ = 15 * 1024 * 1024; // 15MB
+  int quic_connection_idle_timeout_seconds_ = 30;
+
+  int keepalive_initial_interval_ms_ = 0;
 };
 
 using EngineBuilderSharedPtr = std::shared_ptr<EngineBuilder>;

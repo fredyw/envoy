@@ -26,7 +26,7 @@ open class EngineBuilder() {
     )
   }
   private var logLevel = LogLevel.INFO
-  private var connectTimeoutSeconds = 30
+  private var connectTimeoutSeconds = 10
   private var dnsRefreshSeconds = 60
   private var dnsFailureRefreshSecondsBase = 2
   private var dnsFailureRefreshSecondsMax = 10
@@ -41,7 +41,6 @@ open class EngineBuilder() {
   internal var enableHttp3 = true
   internal var useCares = false
   internal var caresFallbackResolvers = mutableListOf<Pair<String, Int>>()
-  internal var forceV6 = true
   private var useGro = false
   private var http3ConnectionOptions = ""
   private var http3ClientConnectionOptions = ""
@@ -49,7 +48,7 @@ open class EngineBuilder() {
   private var quicCanonicalSuffixes = mutableListOf<String>()
   private var enableGzipDecompression = true
   private var enableBrotliDecompression = false
-  private var enablePortMigration = false
+  private var numTimeoutsToTriggerPortMigration = 0
   private var enableSocketTagging = false
   private var enableInterfaceBinding = false
   private var h2ConnectionKeepaliveIdleIntervalMilliseconds = 1
@@ -66,6 +65,7 @@ open class EngineBuilder() {
   private var keyValueStores = mutableMapOf<String, EnvoyKeyValueStore>()
   private var enablePlatformCertificatesValidation = false
   private var upstreamTlsSni: String = ""
+  private var h3ConnectionKeepaliveInitialIntervalMilliseconds = 0
 
   /**
    * Sets a log level to use with Envoy.
@@ -234,17 +234,6 @@ open class EngineBuilder() {
   }
 
   /**
-   * Specify whether local ipv4 addresses should be mapped to ipv6. Defaults to true.
-   *
-   * @param forceV6 whether or not to translate v4 to v6.
-   * @return This builder.
-   */
-  fun forceV6(forceV6: Boolean): EngineBuilder {
-    this.forceV6 = forceV6
-    return this
-  }
-
-  /**
    * Specify whether to use UDP GRO for upstream QUIC/HTTP3 sockets, if GRO is available on the
    * system.
    *
@@ -268,13 +257,14 @@ open class EngineBuilder() {
   }
 
   /**
-   * Specify whether to do quic port migration or not. Defaults to false.
+   * Configure QUIC port migration. Defaults to disabled.
    *
-   * @param enablePortMigration whether or not to allow quic port migration.
+   * @param numTimeoutsToTriggerPortMigration number of timeouts to trigger port migration. If 0,
+   *   port migration is disabled.
    * @return This builder.
    */
-  fun enablePortMigration(enablePortMigration: Boolean): EngineBuilder {
-    this.enablePortMigration = enablePortMigration
+  fun setNumTimeoutsToTriggerPortMigration(numTimeoutsToTriggerPortMigration: Int): EngineBuilder {
+    this.numTimeoutsToTriggerPortMigration = numTimeoutsToTriggerPortMigration
     return this
   }
 
@@ -548,6 +538,11 @@ open class EngineBuilder() {
     return this
   }
 
+  fun addH3ConnectionKeepaliveInitialIntervalMilliseconds(interval: Int): EngineBuilder {
+    this.h3ConnectionKeepaliveInitialIntervalMilliseconds = interval
+    return this
+  }
+
   /**
    * Builds and runs a new Engine instance with the provided configuration.
    *
@@ -570,7 +565,6 @@ open class EngineBuilder() {
         enableDrainPostDnsRefresh,
         enableHttp3,
         useCares,
-        forceV6,
         useGro,
         http3ConnectionOptions,
         http3ClientConnectionOptions,
@@ -578,7 +572,7 @@ open class EngineBuilder() {
         quicCanonicalSuffixes,
         enableGzipDecompression,
         enableBrotliDecompression,
-        enablePortMigration,
+        numTimeoutsToTriggerPortMigration,
         enableSocketTagging,
         enableInterfaceBinding,
         h2ConnectionKeepaliveIdleIntervalMilliseconds,
@@ -597,6 +591,7 @@ open class EngineBuilder() {
         enablePlatformCertificatesValidation,
         upstreamTlsSni,
         caresFallbackResolvers,
+        h3ConnectionKeepaliveInitialIntervalMilliseconds,
       )
 
     return EngineImpl(engineType(), engineConfiguration, logLevel)

@@ -306,6 +306,7 @@ envoy_mobile_android_test(
     srcs = [
         "BidirectionalStreamTest.java",
     ],
+    flaky = True,
     native_deps = [
         "//test/jni:libenvoy_jni_with_test_extensions.so",
     ] + select({

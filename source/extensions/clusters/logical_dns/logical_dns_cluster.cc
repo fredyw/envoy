@@ -107,7 +107,7 @@ void LogicalDnsCluster::startResolve() {
         // If the DNS resolver successfully resolved with an empty response list, the logical DNS
         // cluster does not update. This ensures that a potentially previously resolved address does
         // not stabilize back to 0 hosts.
-        if (status == Network::DnsResolver::ResolutionStatus::Success && !response.empty()) {
+        if (status == Network::DnsResolver::ResolutionStatus::Completed && !response.empty()) {
           info_->configUpdateStats().update_success_.inc();
           const auto addrinfo = response.front().addrInfo();
           // TODO(mattklein123): Move port handling into the DNS interface.
@@ -118,9 +118,10 @@ void LogicalDnsCluster::startResolve() {
           auto address_list = DnsUtils::generateAddressList(response, dns_port_);
 
           if (!logical_host_) {
-            logical_host_ = std::make_shared<LogicalHost>(info_, hostname_, new_address,
-                                                          address_list, localityLbEndpoint(),
-                                                          lbEndpoint(), nullptr, time_source_);
+            logical_host_ = THROW_OR_RETURN_VALUE(
+                LogicalHost::create(info_, hostname_, new_address, address_list,
+                                    localityLbEndpoint(), lbEndpoint(), nullptr, time_source_),
+                std::unique_ptr<LogicalHost>);
 
             const auto& locality_lb_endpoint = localityLbEndpoint();
             PriorityStateManager priority_state_manager(*this, local_info_, nullptr, random_);
