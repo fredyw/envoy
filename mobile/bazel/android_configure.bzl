@@ -20,11 +20,16 @@ def _android_autoconf_impl(repository_ctx):
     sdk_rule = ""
     if sdk_home:
         sdk_rule = """
-    native.android_sdk_repository(
+    android_sdk_repository(
         name="androidsdk",
         path="{}",
         api_level={},
         build_tools_version="{}",
+    )
+
+    native.register_toolchains(
+        "@rules_android//toolchains/android:android_default_toolchain",
+        "@rules_android//toolchains/android_sdk:android_sdk_tools",
     )
 """.format(sdk_home, sdk_api_level, build_tools_version)
 
@@ -36,6 +41,8 @@ def _android_autoconf_impl(repository_ctx):
         path="{}",
         api_level={},
     )
+
+    native.register_toolchains("@androidndk//:all")
 """.format(ndk_home, ndk_api_level)
 
     if ndk_rule == "" and sdk_rule == "":
@@ -43,9 +50,12 @@ def _android_autoconf_impl(repository_ctx):
 
     repository_ctx.file("BUILD.bazel", "")
     repository_ctx.file("android_configure.bzl", """
+load("@rules_android//rules:rules.bzl", "android_sdk_repository")
+load("@rules_android//:prereqs.bzl", "rules_android_prereqs")
 load("@rules_android_ndk//:rules.bzl", "android_ndk_repository")
 
 def android_workspace():
+    rules_android_prereqs()
     {}
     {}
     """.format(sdk_rule, ndk_rule))
