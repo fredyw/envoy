@@ -205,7 +205,7 @@ platform(
 )
 
 platform(
-    name = "android_x86",
+    name = "android_x86_32",
     constraint_values = [
         "@platforms//cpu:x86_32",
         "@platforms//os:android",
